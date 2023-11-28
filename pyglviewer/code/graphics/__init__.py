@@ -20,3 +20,4 @@ from graphics.mesh2D_renderable import *
 from graphics.camera import *
 from graphics.shader import *
 from graphics.rod2D_renderable import *
+from graphics.palet2D_renderable import *
