@@ -8,7 +8,7 @@ from .abstract_dynamic_system import AbstractDynamicSystem
 
 #Global Variable(s)
 g = 9.81
-alpha = 50
+alpha = 150
 
 def eulerExplicite(X, h, m, force):
     a = np.array([force[0], force[1]])/m
@@ -27,7 +27,7 @@ class CurlingDynamic(AbstractDynamicSystem):
         self.palets = palets
 
         # Parameters
-        self.h = .005
+        self.h = .02
         self.time = 0.
 
     def step(self):
@@ -59,8 +59,11 @@ class CurlingDynamic(AbstractDynamicSystem):
                     continue
 
                 if np.linalg.norm(palet.position - paletCompare.position) < palet.radius + paletCompare.radius:
-                    palet.velocity = paletCompare.velocity * 0.4
-                    paletCompare.velocity *= -0.6
+                    u1 = palet.velocity.copy()
+                    u2 = paletCompare.velocity.copy()
+                    dist = palet.position-paletCompare.position
+                    palet.velocity -= 2*paletCompare.mass/(palet.mass+paletCompare.mass) * np.dot(u1-u2, dist)/np.dot(dist, dist)*dist
+                    paletCompare.velocity -= 2*palet.mass/(palet.mass+paletCompare.mass) * np.dot(u2-u1, -dist)/np.dot(-dist, -dist)*(-dist)
 
         #Update next palet if possible
         allStopped = True
@@ -69,6 +72,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                 allStopped = False
                 break
         if allStopped:
+
             try:
                 [elt for elt in self.palets if not(elt.visible)][0].visible = True
             except:
