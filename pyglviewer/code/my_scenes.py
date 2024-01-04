@@ -14,9 +14,12 @@ def curling(viewer):
     """
 
     palets = []
-    for _ in range(100):
-        palet = Palet2D(np.array([0.0, -2.5]), np.array([rd.uniform(-0.5, 0.5),rd.uniform(5, 10)]) * 3, radius=0.1, visible=False)
-        paletRenderable = Palet2DRenderable(palet)
+    for i in range(16):
+        color = np.array([1, 0, 0]) if i % 2 else np.array([0, 0, 1])
+        # velocity = np.array([rd.uniform(-0.15, 0.15), rd.uniform(1.7, 2.1)]) * 3
+        velocity = np.array([0, 1.5 + 0.3 * i]) * 3
+        palet = Palet2D(np.array([0.0, -10]), velocity, radius=0.15, color=color, visible=False)
+        paletRenderable = Palet2DRenderable(palet, scale=0.19)
         viewer.addRenderable(paletRenderable)
 
         palets.append(palet)

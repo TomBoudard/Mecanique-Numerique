@@ -14,7 +14,7 @@ from .mesh2D_renderable import Mesh2DRenderable
 class Palet2DRenderable(Mesh2DRenderable):
 
 
-    def __init__(self, palet):
+    def __init__(self, palet, scale=1):
         ## Constructor
         # Generates a mesh around the rod and
         # initialized the GPU buffers
@@ -24,12 +24,16 @@ class Palet2DRenderable(Mesh2DRenderable):
         self.glId = None
         
         self.palet = palet
+        self.scale = scale
 
         # Init mesh
         nbVerticesPalet = palet.nbVertices
         nbVerticesMesh = nbVerticesPalet + 1
         positions = np.zeros(2 * nbVerticesMesh, np.float64)
         colours = np.zeros(3 * nbVerticesMesh, np.float32)
+        for i in range(nbVerticesPalet//8 + 1, 3*nbVerticesPalet//8 + 1):
+            colours[3*i:3*i + 3] = palet.color
+
         ## Indices
         indices = []
         for i in range(1, nbVerticesMesh):
@@ -57,11 +61,11 @@ class Palet2DRenderable(Mesh2DRenderable):
         position = self.palet.position
         meshPositions = self.mesh.positions
 
-        meshPositions[0] = position[0]
-        meshPositions[1] = position[1]
+        meshPositions[0] = self.scale * position[0]
+        meshPositions[1] = self.scale * position[1]
         for vId in range(self.palet.nbVertices):
-            meshPositions[2*(vId+1)] = position[0] + np.cos(2*vId*np.pi/self.palet.nbVertices)*self.palet.radius
-            meshPositions[2*(vId+1)+1] = position[1] + np.sin(2*vId*np.pi/self.palet.nbVertices)*self.palet.radius
+            meshPositions[2*(vId+1)] = self.scale * (position[0] + np.cos(2*vId*np.pi/self.palet.nbVertices + self.palet.theta)*self.palet.radius)
+            meshPositions[2*(vId+1)+1] = self.scale * (position[1] + np.sin(2*vId*np.pi/self.palet.nbVertices + self.palet.theta)*self.palet.radius)
             
     def updateMeshColours(self):
         ## Compute the colours of the mesh from the rod
@@ -69,11 +73,13 @@ class Palet2DRenderable(Mesh2DRenderable):
         # @param self
 
         # Data
-        colours = self.palet.color
-        meshColours = self.mesh.colours
+        pass
+        # colours = self.palet.color
+        # meshColours = self.mesh.colours
 
-        for vId in range(self.palet.nbVertices + 1):
-            meshColours[3*vId:3*(vId+1)] = colours
+        # for vId in range(self.palet.nbVertices):
+        #     meshColours[3*vId:3*(vId+1)] = colours
+        # meshColours[3*(vId+1):3*(vId+2)] = (1, 0, 0)
                 
         
             
