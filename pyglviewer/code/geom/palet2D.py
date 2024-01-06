@@ -7,7 +7,7 @@ import numpy as np
 ## Class defining a 2D palet
 class Palet2D(object):
 
-    def __init__(self, position, velocity, radius = 1, theta = 0, nbVertices = 40, color = np.array((0.1, 0.1, 0.1), np.float32), mass=18, visible=True):
+    def __init__(self, position, velocity, radius = 1, theta = 0, omega = 0, nbVertices = 40, color = np.array((0.1, 0.1, 0.1), np.float32), mass=18, visible=True):
         ## Constructor
         # @param positions  1-D Numpy array concatenating
         #                   the 2D positions of the mesh
@@ -24,6 +24,7 @@ class Palet2D(object):
         self.mass = mass
         self.mInertie = 0.5*self.mass*self.radius*self.radius
         self.theta = theta
+        self.omega = omega
         self.visible = visible
 
         if (color.size != 3):

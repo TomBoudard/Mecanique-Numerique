@@ -70,17 +70,17 @@ class CurlingDynamic(AbstractDynamicSystem):
                     continue                
                 if np.linalg.norm(palet.position - paletCompare.position) < palet.radius + paletCompare.radius:
 
-                    pair[i].append((nbContacts, -1, j))
-                    pair[j].append((nbContacts, 1, i))
+                    pair[i].append((nbContacts, 0))
+                    pair[j].append((nbContacts, 1))
                     nbContacts += 1
 
                     # Calc Pc
-                    nc = (paletCompare.position - palet.position) / np.linalg.norm(paletCompare.position - palet.position)
+                    nc = -(paletCompare.position - palet.position) / np.linalg.norm(paletCompare.position - palet.position)
                     tc = np.array([-nc[1], nc[0]])
                     Pc = np.array([nc, tc]).T
                     
                     partialJPalet = np.array((paletCompare.position + palet.position)/2 - palet.position) #All palets are the same size
-                    partialJPalet[0], partialJPalet[1] = partialJPalet[1], -partialJPalet[0]
+                    partialJPalet[0], partialJPalet[1] = -partialJPalet[1], partialJPalet[0]
 
                     JPalet = np.array([
                         [1, 0, partialJPalet[0]],
@@ -90,7 +90,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                     HcPalet = np.matmul(Pc, JPalet)
 
                     partialJPaletCompare = np.array((palet.position + paletCompare.position)/2 - paletCompare.position) #All palets are the same size
-                    partialJPaletCompare[0], partialJPaletCompare[1] = partialJPaletCompare[1], -partialJPaletCompare[0]
+                    partialJPaletCompare[0], partialJPaletCompare[1] = -partialJPaletCompare[1], partialJPaletCompare[0]
 
                     JPaletCompare = np.array([
                         [1, 0, partialJPaletCompare[0]],
@@ -108,7 +108,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                         M_1 = np.hstack((M_1, np.zeros((M_1.shape[0], 3))))
                         M_1 = np.vstack((M_1, np.zeros((3, M_1.shape[1]))))
                         M_1[M_1.shape[0]-3: M_1.shape[0], M_1.shape[1]-3: M_1.shape[1]] = np.array([[1/palet.mass, 0, 0], [0, 1/palet.mass, 0], [0, 0, 1/palet.mInertie]])
-                        V = np.hstack((V, np.array([palet.velocity[0], palet.velocity[1], palet.theta])))
+                        V = np.hstack((V, np.array([palet.velocity[0], palet.velocity[1], palet.omega])))
 
                     Hindex = dico[i]
                     H[H.shape[0]-2:H.shape[0], 3*Hindex:3*Hindex+3] = -HcPalet
@@ -119,16 +119,17 @@ class CurlingDynamic(AbstractDynamicSystem):
                         M_1 = np.hstack((M_1, np.zeros((M_1.shape[0], 3))))
                         M_1 = np.vstack((M_1, np.zeros((3, M_1.shape[1]))))
                         M_1[M_1.shape[0]-3: M_1.shape[0], M_1.shape[1]-3: M_1.shape[1]] = np.array([[1/paletCompare.mass, 0, 0], [0, 1/paletCompare.mass, 0], [0, 0, 1/paletCompare.mInertie]])
-                        V = np.hstack((V, np.array([paletCompare.velocity[0], paletCompare.velocity[1], paletCompare.theta])))
+                        V = np.hstack((V, np.array([paletCompare.velocity[0], paletCompare.velocity[1], paletCompare.omega])))
 
                     Hindex = dico[j]
                     H[H.shape[0]-2:H.shape[0], 3*Hindex:3*Hindex+3] = HcPaletCompare
         
-
         if (nbContacts != 0):
-            A = np.matmul(np.matmul(H, M_1), np.transpose(H)) 
+            # print(dico)
+            # print(H)
+            A = np.matmul(np.matmul(H, M_1), np.transpose(H)) # taille 2x2
 
-            b = np.matmul(H, V)
+            b = np.matmul(H, V) # taille 2x1
 
             # Create fischerburmeister object
 
@@ -141,9 +142,13 @@ class CurlingDynamic(AbstractDynamicSystem):
             nnsm = NonSmoothNewton(tolerance, maxIter)
 
             x0 = np.zeros((2*nbContacts))
-            xBest, _ = nnsm.solve(fish, x0)
+            # print(A)
+            # print(b)
+            # print()
+            xBest, _ = nnsm.solve(fish, x0) # taille 2x1
 
-            forceContact = H.T @ xBest
+            forceContact = H.T @ xBest / self.h # taille 6x1
+
 
         for i, palet in enumerate(activePalets):
 
@@ -152,16 +157,16 @@ class CurlingDynamic(AbstractDynamicSystem):
             resForce = np.zeros(2, dtype=np.float32)
             resCouple = 0
 
-            for index, sens, paletCompareIndex in pair[i]:
-                paletCompare = activePalets[paletCompareIndex]
-                nc = (paletCompare.position - palet.position) / np.linalg.norm(paletCompare.position - palet.position)
-                tc = np.array([-nc[1], nc[0]])
-                Pc = np.array([nc, tc]).T
-                print(" -------> xBest: ", xBest[2*index:2*index+2])
-                print(" -------> forceContact: ", forceContact[2*index:2*index+2])
+            if i in dico.keys():
+                index = dico[i]
 
-                resForce = resForce + np.matmul(np.linalg.inv(Pc), forceContact[2*index:2*index+2]) / self.h
-                # print(" -------> resForce: ", resForce)
+                resForce = resForce + forceContact[3*index:3*index+2]
+                print(" -------> resForce: ", resForce)
+
+                dir = self.palets[0].position - self.palets[1].position
+                print("Nc  dir =", dir / np.linalg.norm(dir))
+                print("Vel dir =", palet.velocity / np.linalg.norm(palet.velocity))
+                print(" F  dir =", forceContact[3*index:3*index+2] / np.linalg.norm(forceContact[3*index:3*index+2]))
 
                 # Frottement fluide
             resForce += -alpha*palet.velocity
