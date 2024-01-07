@@ -14,7 +14,7 @@ from .mesh2D_renderable import Mesh2DRenderable
 class Palet2DRenderable(Mesh2DRenderable):
 
 
-    def __init__(self, palet, scale=1):
+    def __init__(self, palet, scale=1, mainColor=np.array((0.1, 0.1, 0.1), np.float32), isPalet=True):
         ## Constructor
         # Generates a mesh around the rod and
         # initialized the GPU buffers
@@ -31,8 +31,15 @@ class Palet2DRenderable(Mesh2DRenderable):
         nbVerticesMesh = nbVerticesPalet + 1
         positions = np.zeros(2 * nbVerticesMesh, np.float64)
         colours = np.zeros(3 * nbVerticesMesh, np.float32)
-        for i in range(nbVerticesPalet//8 + 1, 3*nbVerticesPalet//8 + 1):
-            colours[3*i:3*i + 3] = palet.color
+        
+        for i in range(0, nbVerticesMesh):
+            if isPalet:
+                if i >= (nbVerticesPalet//8 + 1) and i < 3*nbVerticesPalet//8 + 1:
+                    colours[3*i:3*i + 3] = palet.color
+                else:
+                    colours[3*i:3*i + 3] = mainColor
+            else:
+                colours[3*i:3*i + 3] = mainColor
 
         ## Indices
         indices = []

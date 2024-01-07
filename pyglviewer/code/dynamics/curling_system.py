@@ -14,6 +14,7 @@ g = 9.81
 alpha = 6*np.pi*0.14 * 0.018e-3
 mu = 0.1
 mu2 = 0.1
+restitutionCoef = 0.8
 
 def eulerExplicite(X, h, m, force):
     a = np.array([force[0], force[1]])/m
@@ -22,14 +23,20 @@ def eulerExplicite(X, h, m, force):
 
     return X_1
 
-def eulerSemiImplicite(X, h, m, force): # X = [x, y, theta, vx, vy, omega]
-    Vel = X[2:]
+def eulerSemiImplicite(X, h, m, force, couple): # X = [x, y, theta, vx, vy, omega]
+    Vel = X[3:5]
     Vel_1 = Vel + h*(1/m)*force
 
     Pos = X[:2]
     Pos_1 = Pos + h * Vel_1
 
-    X_1 = np.array([Pos_1[0], Pos_1[1], Vel_1[0], Vel_1[1]])
+    Omega = X[5]
+    Omega_1 = Omega + h*(1/m)*couple
+
+    Theta = X[3]
+    Theta_1 = Theta +h * Omega_1
+
+    X_1 = np.array([Pos_1[0], Pos_1[1], Theta_1, Vel_1[0], Vel_1[1], Omega_1])
     
     return X_1
 
@@ -108,7 +115,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                         M_1 = np.hstack((M_1, np.zeros((M_1.shape[0], 3))))
                         M_1 = np.vstack((M_1, np.zeros((3, M_1.shape[1]))))
                         M_1[M_1.shape[0]-3: M_1.shape[0], M_1.shape[1]-3: M_1.shape[1]] = np.array([[1/palet.mass, 0, 0], [0, 1/palet.mass, 0], [0, 0, 1/palet.mInertie]])
-                        V = np.hstack((V, np.array([palet.velocity[0], palet.velocity[1], palet.omega])))
+                        V = np.hstack((V, np.array([palet.velocity[0]*(1+restitutionCoef), palet.velocity[1]*(1+restitutionCoef), palet.omega])))
 
                     Hindex = dico[i]
                     H[H.shape[0]-2:H.shape[0], 3*Hindex:3*Hindex+3] = -HcPalet
@@ -119,7 +126,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                         M_1 = np.hstack((M_1, np.zeros((M_1.shape[0], 3))))
                         M_1 = np.vstack((M_1, np.zeros((3, M_1.shape[1]))))
                         M_1[M_1.shape[0]-3: M_1.shape[0], M_1.shape[1]-3: M_1.shape[1]] = np.array([[1/paletCompare.mass, 0, 0], [0, 1/paletCompare.mass, 0], [0, 0, 1/paletCompare.mInertie]])
-                        V = np.hstack((V, np.array([paletCompare.velocity[0], paletCompare.velocity[1], paletCompare.omega])))
+                        V = np.hstack((V, np.array([paletCompare.velocity[0]*(1+restitutionCoef), paletCompare.velocity[1]*(1+restitutionCoef), paletCompare.omega])))
 
                     Hindex = dico[j]
                     H[H.shape[0]-2:H.shape[0], 3*Hindex:3*Hindex+3] = HcPaletCompare
@@ -129,7 +136,7 @@ class CurlingDynamic(AbstractDynamicSystem):
             # print(H)
             A = np.matmul(np.matmul(H, M_1), np.transpose(H)) # taille 2x2
 
-            b = np.matmul(H, V) # taille 2x1
+            b = np.matmul(H, V)  #+ np.matmul(M_1, F_ext)*self.h # taille 2x1 #FIXME Use u_-1 for restitutionCoef
 
             # Create fischerburmeister object
 
@@ -152,7 +159,7 @@ class CurlingDynamic(AbstractDynamicSystem):
 
         for i, palet in enumerate(activePalets):
 
-            X = np.array([*palet.position, *palet.velocity])
+            X = np.array([*palet.position, palet.theta, *palet.velocity, palet.omega])
             #Forces
             resForce = np.zeros(2, dtype=np.float32)
             resCouple = 0
@@ -160,7 +167,8 @@ class CurlingDynamic(AbstractDynamicSystem):
             if i in dico.keys():
                 index = dico[i]
 
-                resForce = resForce + forceContact[3*index:3*index+2]
+                resForce = resForce + forceContact[3*index:3*index+2] @ np.linalg.inv(Pc)
+                resCouple = resCouple + forceContact[3*index+2]
                 print(" -------> resForce: ", resForce)
 
                 dir = self.palets[0].position - self.palets[1].position
@@ -184,11 +192,13 @@ class CurlingDynamic(AbstractDynamicSystem):
 
 
             #Step n+1
-            X_1 = eulerSemiImplicite(X, self.h, palet.mass, resForce)
+            X_1 = eulerSemiImplicite(X, self.h, palet.mass, resForce, resCouple)
 
 
             palet.position = X_1[:2]
-            palet.velocity = X_1[2:]
+            palet.velocity = X_1[3:5]
+            palet.theta = X_1[2]
+            palet.omega = X_1[5]
 
             # #FIXME To Change
             # if np.linalg.norm(palet.velocity) < 0.1:
