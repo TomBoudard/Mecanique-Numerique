@@ -8,7 +8,8 @@ from .abstract_dynamic_system import AbstractDynamicSystem
 
 #Global Variable(s)
 g = 9.81
-alpha = 50
+alpha = 6*np.pi*0.14 * 0.018e-3
+mu = 0.1
 
 def eulerExplicite(X, h, m, force):
     a = np.array([force[0], force[1]])/m
@@ -31,6 +32,10 @@ class CurlingDynamic(AbstractDynamicSystem):
         self.time = 0.
 
     def step(self):
+        for _ in range(3):
+            self.compute()
+
+    def compute(self):
     
         #Compute the step n+1 of each palet
         activePalets = [elt for elt in self.palets if elt.visible]
@@ -39,8 +44,21 @@ class CurlingDynamic(AbstractDynamicSystem):
 
             X = np.array([*palet.position, *palet.velocity])
             #Forces
+            resForce = 0
             
-            resForce = -alpha*palet.velocity
+                # Frottement fluide
+            resForce += -alpha*palet.velocity
+
+                # Frottement solide
+            paletNorm = np.linalg.norm(palet.velocity)
+            resNorm = np.linalg.norm(resForce)
+            #FIXME Integrer la vitesse pour utiliser la bonne velocity au bon pas de temps =)
+            if (paletNorm != 0):
+                # Vel + h*(1/m)*force
+                # m/h > mu * m * g / paletNorm
+                resForce += - min(mu * palet.mass * g * (1/paletNorm), palet.mass/self.h) * palet.velocity
+            elif (resNorm != 0):
+                resForce += - min(mu * palet.mass * g * (1/resNorm), 1) * resForce
 
             #Step n+1
             X_1 = eulerExplicite(X, self.h, palet.mass, resForce)

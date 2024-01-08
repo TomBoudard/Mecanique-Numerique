@@ -13,7 +13,7 @@ from .abstract_dynamic_system import AbstractDynamicSystem
 g = 9.81
 alpha = 6*np.pi*0.14 * 0.018e-3
 mu = 0.1
-mu2 = 0.1
+mu2 = 0
 restitutionCoef = 0.8
 
 def eulerExplicite(X, h, m, force):
@@ -23,7 +23,7 @@ def eulerExplicite(X, h, m, force):
 
     return X_1
 
-def eulerSemiImplicite(X, h, m, force, couple): # X = [x, y, theta, vx, vy, omega]
+def eulerSemiImplicite(X, h, m, mInertie, force, couple): # X = [x, y, theta, vx, vy, omega]
     Vel = X[3:5]
     Vel_1 = Vel + h*(1/m)*force
 
@@ -31,10 +31,10 @@ def eulerSemiImplicite(X, h, m, force, couple): # X = [x, y, theta, vx, vy, omeg
     Pos_1 = Pos + h * Vel_1
 
     Omega = X[5]
-    Omega_1 = Omega + h*(1/m)*couple
+    Omega_1 = Omega + h*(1/mInertie)*couple
 
     Theta = X[3]
-    Theta_1 = Theta +h * Omega_1
+    Theta_1 = Theta + h * Omega_1
 
     X_1 = np.array([Pos_1[0], Pos_1[1], Theta_1, Vel_1[0], Vel_1[1], Omega_1])
     
@@ -54,11 +54,10 @@ class CurlingDynamic(AbstractDynamicSystem):
         self.time = 0.
 
     def step(self):
-        for _ in range(3):
+        for _ in range(5):
             self.compute()
 
     def compute(self):
-
     
         #Compute the step n+1 of each palet
         activePalets = [elt for elt in self.palets if elt.visible]
@@ -75,7 +74,7 @@ class CurlingDynamic(AbstractDynamicSystem):
                 j = jindex + i + 1
                 if palet == paletCompare:
                     continue                
-                if np.linalg.norm(palet.position - paletCompare.position) < palet.radius + paletCompare.radius:
+                if np.linalg.norm(palet.position - paletCompare.position) < (palet.radius + paletCompare.radius):
 
                     pair[i].append((nbContacts, 0))
                     pair[j].append((nbContacts, 1))
@@ -144,8 +143,8 @@ class CurlingDynamic(AbstractDynamicSystem):
             
             # Call nsnewton to solve and have a resForce
 
-            tolerance = 1e-6
-            maxIter = 100
+            tolerance = 1e-30
+            maxIter = 1000
             nnsm = NonSmoothNewton(tolerance, maxIter)
 
             x0 = np.zeros((2*nbContacts))
@@ -167,14 +166,15 @@ class CurlingDynamic(AbstractDynamicSystem):
             if i in dico.keys():
                 index = dico[i]
 
-                resForce = resForce + forceContact[3*index:3*index+2] @ np.linalg.inv(Pc)
+                resForce = resForce + forceContact[3*index:3*index+2]
                 resCouple = resCouple + forceContact[3*index+2]
                 print(" -------> resForce: ", resForce)
 
                 dir = self.palets[0].position - self.palets[1].position
-                print("Nc  dir =", dir / np.linalg.norm(dir))
-                print("Vel dir =", palet.velocity / np.linalg.norm(palet.velocity))
-                print(" F  dir =", forceContact[3*index:3*index+2] / np.linalg.norm(forceContact[3*index:3*index+2]))
+                # print("Nc  dir =", dir / np.linalg.norm(dir))
+                # print("Vel dir =", palet.velocity / np.linalg.norm(palet.velocity))
+                # print(" F  dir =", forceContact[3*index:3*index+2] / np.linalg.norm(forceContact[3*index:3*index+2]))
+                # input()
 
                 # Frottement fluide
             resForce += -alpha*palet.velocity
@@ -192,7 +192,7 @@ class CurlingDynamic(AbstractDynamicSystem):
 
 
             #Step n+1
-            X_1 = eulerSemiImplicite(X, self.h, palet.mass, resForce, resCouple)
+            X_1 = eulerSemiImplicite(X, self.h, palet.mass, palet.mInertie, resForce, resCouple)
 
 
             palet.position = X_1[:2]
