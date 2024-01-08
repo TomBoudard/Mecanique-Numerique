@@ -18,6 +18,18 @@ def eulerExplicite(X, h, m, force):
 
     return X_1
 
+def eulerSemiImplicite(X, h, m, force): # X = [x, y, vx, vy]
+    Vel = X[2:]
+    Vel_1 = Vel + h*(1/m)*force
+
+    Pos = X[:2]
+    Pos_1 = Pos + h * Vel_1
+
+
+    X_1 = np.array([Pos_1[0], Pos_1[1], Vel_1[0], Vel_1[1]])
+    
+    return X_1
+
 class CurlingDynamic(AbstractDynamicSystem):
 
     def __init__(self, palets):
@@ -61,15 +73,15 @@ class CurlingDynamic(AbstractDynamicSystem):
                 resForce += - min(mu * palet.mass * g * (1/resNorm), 1) * resForce
 
             #Step n+1
-            X_1 = eulerExplicite(X, self.h, palet.mass, resForce)
+            X_1 = eulerSemiImplicite(X, self.h, palet.mass, resForce)
 
 
             palet.position = X_1[:2]
             palet.velocity = X_1[2:]
 
             #FIXME To Change
-            if np.linalg.norm(palet.velocity) < 0.1:
-                palet.velocity *= 0
+            # if np.linalg.norm(palet.velocity) < 0.1:
+            #     palet.velocity *= 0
 
         for i, palet in enumerate(activePalets):
             for paletCompare in activePalets[i+1:]:
